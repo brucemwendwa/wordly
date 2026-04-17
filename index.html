@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wordly Dictionary</title>
+<style>
+:root{
+  --bg:#f4f6f8;
+  --card:#ffffff;
+  --text:#1f2a44;
+  --muted:#6b7280;
+  --primary:#4a6cf7;
+}
+body.dark{
+  --bg:#0f172a;
+  --card:#1e293b;
+  --text:#e2e8f0;
+  --muted:#94a3b8;
+}
+body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text);} 
+.app{max-width:720px;margin:30px auto;padding:15px;}
+.card{background:var(--card);border-radius:16px;padding:20px;box-shadow:0 10px 25px rgba(0,0,0,0.1);} 
+.top{display:flex;justify-content:space-between;align-items:center;}
+.search{display:flex;gap:10px;margin:20px 0;}
+input{flex:1;padding:12px;border-radius:10px;border:1px solid #ccc;}
+button{padding:12px;border:none;border-radius:10px;background:var(--primary);color:#fff;cursor:pointer;}
+.word-card{background:var(--card);padding:15px;border-radius:12px;margin-top:15px;animation:fade .4s ease;}
+@keyframes fade{from{opacity:0;transform:translateY(10px);}to{opacity:1;}}
+.tag{display:inline-block;background:#e0e7ff;padding:5px 10px;border-radius:8px;margin:4px;cursor:pointer;font-size:13px;}
+.spinner{border:4px solid #ddd;border-top:4px solid var(--primary);border-radius:50%;width:30px;height:30px;animation:spin 1s linear infinite;margin:20px auto;}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="card">
+<div class="top">
+<h2>Wordly</h2>
+<span onclick="toggleDark()">🌙</span>
+</div>
+<form id="form" class="search">
+<input id="input" placeholder="Search word..." required>
+<button>Search</button>
+</form>
+<div id="result"></div>
+<h4>Recent</h4>
+<div id="history"></div>
+<h4>Saved</h4>
+<div id="favorites"></div>
+</div>
+</div>
+<script>
+const form=document.getElementById('form');
+const input=document.getElementById('input');
+const result=document.getElementById('result');
+const historyDiv=document.getElementById('history');
+const favDiv=document.getElementById('favorites');
+let history=JSON.parse(localStorage.getItem('history'))||[];
+let fav=JSON.parse(localStorage.getItem('fav'))||[];
+
+form.addEventListener('submit',async e=>{
+ e.preventDefault();
+ const word=input.value.trim();
+ if(!word) return;
+ result.innerHTML='<div class="spinner"></div>';
+ try{
+  const res=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
+  if(!res.ok) throw Error();
+  const data=await res.json();
+  localStorage.setItem('last',JSON.stringify(data[0]));
+  show(data[0]);
+  addHistory(word);
+ }catch{
+  const cached=JSON.parse(localStorage.getItem('last'));
+  if(cached){ show(cached); }
+  else{ result.innerHTML='Offline / not found'; }
+ }
+});
+
+function show(entry){
+ let html=`<div class='word-card'><h3>${entry.word}</h3><p>${entry.phonetic||''}</p>`;
+ const audio=entry.phonetics.find(p=>p.audio)?.audio;
+ if(audio) html+=`<button onclick="new Audio('${audio}').play()">🔊</button>`;
+ entry.meanings.forEach(m=>{
+  html+=`<p><b>${m.partOfSpeech}</b></p><ul>`;
+  m.definitions.forEach(d=>{
+   html+=`<li>${d.definition}</li>`;
+  });
+  html+='</ul>';
+ });
+ html+=`<button onclick="save('${entry.word}')">⭐</button></div>`;
+ result.innerHTML=html;
+}
+
+function addHistory(word){
+ history=[word,...history.filter(w=>w!==word)].slice(0,5);
+ localStorage.setItem('history',JSON.stringify(history));
+ renderHistory();
+}
+
+function renderHistory(){
+ historyDiv.innerHTML=history.map(w=>`<span class='tag' ontouchstart="removeHistory('${w}')" onclick="quick('${w}')">${w}</span>`).join('');
+}
+
+function removeHistory(word){
+ history=history.filter(w=>w!==word);
+ localStorage.setItem('history',JSON.stringify(history));
+ renderHistory();
+}
+
+function save(word){
+ if(!fav.includes(word)){
+  fav.push(word);
+  localStorage.setItem('fav',JSON.stringify(fav));
+  renderFav();
+ }
+}
+
+function renderFav(){
+ favDiv.innerHTML=fav.map(w=>`<span class='tag' onclick="quick('${w}')">${w}</span>`).join('');
+}
+
+function quick(word){ input.value=word; form.dispatchEvent(new Event('submit')); }
+
+function toggleDark(){
+ document.body.classList.toggle('dark');
+ localStorage.setItem('theme',document.body.classList.contains('dark'));
+}
+
+if(localStorage.getItem('theme')==='true') document.body.classList.add('dark');
+renderHistory(); renderFav();
+</script>
+</body>
+</html>
