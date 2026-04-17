@@ -27,4 +27,4 @@ Wordly is a single-page dictionary application that allows users to search for w
 https://dictionaryapi.dev/
 
 ## Author
-Your Name
+bruce mwendwa
